@@ -1,0 +1,54 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-clone
+spec:
+  params:
+  - name: app-git
+    description: the git repo
+  - name: uid
+    description: uid
+  - name: git-revision
+    type: string
+    default: main
+  workspaces:
+  - name: task-pvc
+    mountPath: /workspace/source
+  steps:
+    - name: clone-repo
+      image: alpine/git
+      script: |
+        #!/bin/sh
+        set -e
+
+        if [ -d /workspace/source/testtekton ]; then
+          echo "Removing existing /workspace/source/ directory."
+          rm -rf /workspace/source/*
+        fi
+
+        git clone --single-branch --branch main https://$GIT_USERNAME:$GIT_TOKEN@github.com/traviixxx/testtekton.git /workspace/source/testtekton
+        
+        cd /workspace/source/testtekton
+
+        COMMIT_SHA=$(git rev-parse HEAD)
+        echo "COMMIT_SHA" > /workspace/source/commit-tag.txt
+        echo $(git rev-parse HEAD)
+        echo "Current directory: $(pwd)"
+        echo "Listing files in /workspace/source/"
+        ls -l /workspace/source/testtekton
+        ls -l /workspace/source
+
+      env:
+        - name: GIT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: github-secret
+              key: username
+        - name: GIT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-secret
+              key: token
+      # volumeMounts:
+        # - name: task-pvc
+          # mountPath: $(workspaces.task-pvc.path)

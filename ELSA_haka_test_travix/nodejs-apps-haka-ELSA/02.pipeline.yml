@@ -1,0 +1,91 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: nodejs-deploy
+#  annotations:
+#    kubernetes.io/service-account.name: tekton-sa
+spec:
+  params:
+  - name: image
+    type: string
+  - name: git-revision
+    type: string
+  - name: uid
+  workspaces:
+  - name: task-pvc
+
+  tasks:
+  - name: fetch
+    taskRef:
+      name: git-clone
+    params:
+    - name: app-git
+      value: https://github.com/traviixxx/testtekton
+    - name: uid
+      value: $(params.uid)
+    workspaces:
+    - name: task-pvc
+
+  - name: test
+    taskRef:
+      name: nodejs-test
+    params:
+    - name: uid
+      value: $(params.uid)
+    workspaces:
+    - name: task-pvc
+    runAfter:
+    - fetch
+
+  - name: build-push
+    taskRef:
+      name: build-push
+    params:
+    - name: app-git
+      value: https://github.com/traviixxx/testtekton
+    - name: uid
+      value: $(params.uid)
+    - name: git-revision
+      value: main
+    - name: image
+      value: $(params.image)
+    workspaces:
+    - name: task-pvc
+    runAfter:
+    - test
+  
+  - name: xdeploy
+    taskRef:
+      name: pull-deploy
+    params:
+    - name: uid
+      value: $(params.uid)
+    - name: image
+      value: $(params.image)
+    workspaces:
+    - name: task-pvc
+    runAfter:
+    - build-push
+
+  - name: check200
+    taskRef:
+      name: health-check
+    runafter:
+    - xdeploy
+    params:
+    - name: uid
+      value: $(params.uid)
+
+  - name: rollback
+    taskRef:
+      name: undo
+    runAfter:
+    - check200
+    params:
+    - name: uid
+      value: $(params.uid)
+    when:
+      - input: "(tasks.health-check.status)"
+        operator: in
+        values: ["Failed"]
+

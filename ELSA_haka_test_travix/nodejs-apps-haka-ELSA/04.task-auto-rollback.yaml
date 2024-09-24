@@ -1,0 +1,12 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: undo
+spec:
+  steps:
+    - name: undo-if
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/sh
+        echo "Rolling back the deployment..."
+        kubectl rollout undo deployment/my-web-app --namespace=default

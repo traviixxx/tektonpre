@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: health-check
+spec:
+  steps:
+    - name: check-health
+      image: curlimages/curl:latest
+      script: |
+        #!/bin/sh
+        response=$(curl --silent --fail http://my-web-app-service.default.svc.cluster.local:8080/health)
+        if [ $? -ne 0 ]; then
+          echo "Health check failed"
+          exit 1
+        else
+          echo "Health check succeeded"
+        fi

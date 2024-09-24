@@ -1,0 +1,23 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nodejs-test
+spec:
+  params:
+  - name: uid
+    description: uid
+  workspaces:
+  - name: task-pvc
+    mountPath: /workspace/source
+  steps:
+    - name: install-deps
+      image: node:18
+      workingDir: /workspace/source/testtekton
+      script: |
+        npm install
+
+    - name: run-tests
+      image: node:18
+      workingDir: /workspace/source/testtekton
+      script: |
+        npm test

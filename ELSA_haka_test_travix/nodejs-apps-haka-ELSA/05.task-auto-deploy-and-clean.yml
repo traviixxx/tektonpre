@@ -1,0 +1,65 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: pull-deploy
+spec:
+  params:
+    - name: image
+      type: string
+  workspaces:
+    - name: task-pvc
+      mountPath: /workspace/source
+  steps:
+    - name: copy-app-manifest
+      image: bitnami/kubectl
+      script: |
+        #!/bin/sh
+        set -e
+        
+        # Create the app.yaml and mongodb.yaml files from the ConfigMap
+        kubectl get configmap my-web-app-manifest  -o jsonpath='{.data.app\.yaml}' > /workspace/source/app.yaml
+        kubectl get configmap mongodb-manifest  -o jsonpath='{.data.mongodb\.yaml}' > /workspace/source/mongodb.yaml
+    - name: login-to-docker
+      image: docker
+      script: |
+        #!/bin/sh
+        set -e
+
+        # Log in to Docker Hub using credentials from the secret
+        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+      env:
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: password
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: my-secret
+              key: username
+    - name: deploy
+      image: bitnami/kubectl
+      workingDir: /workspace/source
+      script: |
+        #!/bin/sh
+        set -e
+        COMMIT=$(cat /workspace/source/commit-tag.txt)
+        DEPLOYMENT_NAME="my-web-app"
+        if kubectl get deployment $DEPLOYMENT_NAME; then
+          echo "Deployment $DEPLOYMENT_NAME already exists."
+          echo "Updating the deployment image..."
+          kubectl set image deployment/$DEPLOYMENT_NAME my-web-app=$(params.image):$COMMIT
+        else
+          echo "Deployment $DEPLOYMENT_NAME does not exist."
+          echo "Applying new resources..."
+          kubectl apply -f /workspace/source/app.yaml
+          kubectl apply -f /workspace/source/mongodb.yaml
+        fi
+
+    - name: clean-up
+      image: alpine
+      script: |
+        #!/bin/sh
+        set -e
+        rm -rf /workspace/source/*

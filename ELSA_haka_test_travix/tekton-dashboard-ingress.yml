@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tekton-dashboard-ingress
+  namespace: tekton-pipelines # Adjust the namespace if needed
+  # annotations:
+#   alb.ingress.kubernetes.io/load-balancer: "ad5fe3c221c044017ad1a79f746ce139-1281132052.ap-southeast-1.elb.amazonaws.com"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: tekton-dasboard.alex-eks-elb.link
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: tekton-dashboard
+            port:
+              number: 9097

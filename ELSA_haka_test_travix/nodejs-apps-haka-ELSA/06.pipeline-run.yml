@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: nodejs-deploy-run
+spec:
+  params:
+  - name: uid
+    value: $(context.pipelineRun.uid)
+  - name: image
+    value: "traviixxx/akatesthack"
+  - name: git-revision
+    value: "main"
+  pipelineRef:
+    name: nodejs-deploy
+  workspaces:
+  - name: task-pvc
+    persistentVolumeClaim:
+      claimName: tekton-pvc
+  # - name: github-secret-directory
+    # secret:
+      # secretName: github-auth-secret
